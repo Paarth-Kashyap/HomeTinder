@@ -1,0 +1,865 @@
+﻿Getting Started
+Amplify Syndication is an implementation of the RESO Web API. The RESO Web API is a new, open-standards based data transport for the real estate industry, offering faster and more efficient data delivery. Companies are moving from outdated systems to the RESO Web API for its improved technology and standardized data. The API supports web, mobile, and social applications, and uses open standards for long-term support.
+
+
+Vendor Signup
+If your company does not already have an AMP Syndication Vendor Account, you can sign up for one here:
+
+
+Vendor Signup
+
+
+Vendor Invite User
+If your company has an AMP Syndication Vendor Account, you must ask a team member to send you an invitation from the Vendor Settings page:
+
+
+Vendor Settings
+
+
+Access Token
+Access tokens are granted after a vendor and broker have completed one or more agreements. Once an agreement has been completed, tokens are accessible via the Tokens page:
+
+
+Tokens
+
+
+Use the Show Token button to retrieve the access token. The token will only be shown once. If you lose the access token, you will have to regenerate the token.
+
+
+Metadata Request
+Request the metadata in JSON format using curl:
+
+
+curl -H 'Authorization: Bearer your-access-token-goes-here' \
+-H 'Accept: application/json' \
+'https://query.ampre.ca/odata/$metadata?$format=json'
+
+
+Property Data Request
+Request a random property record using curl:
+
+
+curl -H 'Authorization: Bearer your-access-token-goes-here' \
+'https://query.ampre.ca/odata/Property?$top=1'
+
+
+
+________________
+
+
+Endpoint
+The endpoint is the root URL of the API. It is the URL that you will use to access the API. The endpoint for Amplify's Web API is:
+
+
+https://query.ampre.ca/odata/
+
+
+Example
+curl -H 'Authorization: Bearer your-access-token-goes-here' \
+-H 'Accept: application/json' \
+'https://query.ampre.ca/odata/'
+
+
+Query Options
+An OData query option refers to a collection of query string parameters used to manage the data returned from a resource via the URL. By employing query options, you can effectively regulate the volume of data retrieved from the resource. Essentially, these options enable you to request the service to execute specific transformations, such as filtering, sorting, and more, on its data, thus influencing the final outcome of the results.
+
+
+note
+Remember to URL Encode query string values prior to sending HTTP requests. To aid with readability, the URLs in this document are displayed without URL encoding and wrapped over multiple lines.
+
+
+Filter
+The $filter query option grants clients the ability to apply filtering to a collection of resources identified by a request URL. When using $filter, the provided expression is assessed for each resource in the collection, and only those items for which the expression evaluates to true are included in the response. Any resources where the expression evaluates to false or null, or if they reference properties with restricted permissions, are excluded from the response. This allows for precise control over the data returned based on the specified conditions.
+
+
+See Query Option $filter in the OData spec.
+
+
+Example:
+$filter=ContractStatus eq 'Available'
+and ModificationTimestamp ge 2023-07-27T04:00:00Z
+
+
+Select
+With the $select query option, clients have the capability to request a precise selection of properties for each entity or complex type.
+
+
+See Query Option $select in the OData spec.
+
+
+Example:
+$select=ListingKey,ContractStatus,ModificationTimestamp
+
+
+Order By
+The $orderby query option enables clients to request resources in a specified order.
+
+
+See Query Option $orderby in the OData spec.
+
+
+Example:
+$orderby=ModificationTimestamp,ListingKey
+
+
+Top and Skip
+The $top system query option is used to specify the desired number of items from the queried collection to be included in the result. The $skip query option allows excluding a certain number of items from the queried collection in the result. To retrieve a specific page of items, clients can combine $top and $skip accordingly.
+
+
+See Query Options $top and $skip in the OData spec.
+
+
+caution
+Do not use $top and $skip for replication. $top and $skip are commonly used in Web API queries to limit the amount of data returned by the server. While they can be useful for improving the performance of individual requests, they should not be used for replication purposes. When replicating data, it's important to ensure that all records are transferred and that none are missed. Using $top and $skip can introduce the risk of missing records, especially if records are created or modified while the replication is in progress. Instead, replication should be performed using reliable methods such as timestamp and key-based techniques, which guarantee that all records are transferred in a consistent and accurate manner.
+
+
+The Problem with $top and $skip
+When utilizing $top and $skip, an issue arises when records are updated while multiple pages are requested sequentially. These updates can result in records being shifted into preceding pages, leading to them being overlooked by the ongoing requests. See the diagram below:
+
+
+Problem with Top and Skip
+
+
+If your implementation requires you to use $top and $skip
+Use both a timestamp and a unique key in the $orderby option. For example: $orderby=ModificationTimestamp,ListingKey
+Use a descending $orderby: $orderby=ModificationTimestamp,ListingKey desc. This will ensure that when records are modified during the download, this does not shift the $skip window in a way that causes records to be missed.
+Be prepared for individual records to appear in more than one batch, as this will happen when a record is modified while the download is in progress, which causes the $skip window to shift back.
+Do not filter by the timestamp field used in $orderby (e.g. ModificationTimestamp), as this will cause records to be missed when modifications happen while the download is in progress.
+There is a limit of 100,000 records for the $skip option, therefore $top and $skip can not be used to retrieve more than 100,000 records.
+Count
+Clients can use the $count query option to obtain a count of the total number records that match the filter included in the request (or simply the total number of records in the resource if no filter is included in the request). The value of the $count query option is a Boolean, which can be set to either true or false.
+
+
+See Query Option $count in the OData spec.
+
+
+Examples:
+To retrieve only the total number of records in a collection, without any additional results, use $count=true&$top=0:
+
+
+https://query.ampre.ca/odata/Property?$count=true&$top=0
+
+
+To retrieve the total number of records in a collection in addition to the results:
+
+
+https://query.ampre.ca/odata/Property?$count=true&$top=10
+
+
+Count Response
+The count is returned in the @odata.count field of the response JSON.
+
+
+{
+  "@odata.count": 42,
+  "value": [
+    /* ... */
+  ]
+}
+
+
+
+
+________________
+
+
+Replication
+Replication is the process that enables developers to retrieve a partial or complete copy of a Web API resource and subsequently receive updates to that resource as they occur. This process is useful for developers who need to maintain a local copy of a resource in near real-time, for example to power a search feature on a website or to analyze the data for insights.
+
+
+The replication process is typically broken down into two steps: the initial download and ongoing updates. During the initial download, developers retrieve a copy of the resource, often using pagination techniques to manage the data size. Ongoing updates are then retrieved periodically by polling the Web API for changes since a specified timestamp.
+
+
+tip
+Replication can be a complex process, requiring careful planning and implementation.
+
+
+Initial Download
+The initial download is the first step in setting up replication and involves copying part or all of a resource from the source to the target data store.
+
+
+To perform an initial download of a resource, developers should use the timestamp and key fields to retrieve sequential batches of data. In the case of the Property resource, the timestamp field is called ModificationTimestamp and the key field is called ListingKey.
+
+
+Start by retrieving the oldest records first, and then work your way forward to the most recent records. This ensures that all records are retrieved and that none are missed.
+
+
+Continue retrieving batches of records until the number of records returned is less than the batch size. This indicates that the initial download is complete.
+
+
+tip
+A full example with source code can be found on the Replication Source Code page.
+
+
+Using a Timestamp and Key
+When using a timestamp and key for replication, records are retrieved in batches in the order they were modified, starting from the least-recently modified and ending with the most-recently modified. The key is used to ensure that records with the same timestamp are retrieved in the same order each time.
+
+
+Any records that are modified during the initial download will be retrieved again in the final batch (or batches).
+
+
+Because of this, you must be prepared for individual records to appear in more than one batch during a download. When this happens, you may choose to discard or overwrite the prior version of the record.
+
+
+Unique Key
+Because timestamps are not guaranteed to be unique, in addition to the timestamp you will need to include a unique key in the $filter and $orderby options of your query. It's recommended to use the resource's key field as it's guaranteed to be unique. In the examples below, the ListingKey field is used, as it's the Property resource's key field.
+
+
+Example query template:
+
+
+?$filter=ModificationTimestamp gt <last_timestamp_value>
+or (ModificationTimestamp eq <last_timestamp_value>
+and ListingKey gt '<last_key_value>')
+&$orderby=ModificationTimestamp,ListingKey
+&$top=100
+
+
+First batch query:
+
+
+?$filter=ModificationTimestamp gt 1970-01-01T00:00:00Z
+or (ModificationTimestamp eq 1970-01-01T00:00:00Z
+and ListingKey gt '0')
+&$orderby=ModificationTimestamp,ListingKey
+&$top=100
+
+
+Last Timestamp and Last Key Variables
+For the first batch, the variable last_timestamp_value is initialized to 1970-01-01T00:00:00Z and the variable last_key_value is initialized to 0. Substitute these variables into the initial query URL.
+
+
+After each successful batch, read the timestamp and key values from the last record returned in the batch, store the the values into the last_timestamp_value and last_key_value variables, and substitute the updated variables in the next batch's query URL.
+
+
+It's recommended to persist these variables in the filesystem or a database after each batch, so an initial download can be restarted from where it left off, and it will not have to start over from the beginning. This is sometimes called a checkpoint.
+
+
+Filtering
+Sometimes you may need to retreive only a subset of the records available, based on a filter. For example, you may only want to retrieve listings that have a ContractStatus of Available. To do this, add a filter to the query. In the example below, the filter is added to the $filter option of the batch query.
+
+
+&$filter=ContractStatus eq 'Available'
+and (ModificationTimestamp gt <last_timestamp_value>
+or (ModificationTimestamp eq <last_timestamp_value>
+and ListingKey gt '<last_key_value>'))
+
+
+Field Selection
+If you do not require all of the fields in the resource, be sure to list only the fields you require in the $select option of the query. This will reduce the amount of data transferred and will allow your download to complete in less time. At a minium you must include the timestamp and key fields so they may be used as the last timestamp and last key variables and as a key in the target database.
+
+
+$select=ListingKey,ModificationTimestamp,StandardStatus,ListPrice
+
+
+Batch Size
+Use a batch size that the server is able to return in a reasonable amount of time — perhaps a few seconds. This will depend on the number of fields in the $select option and the size of the values for each field. If the batch size is too large, the request might time out while the server attempts to gather all the data. If the batch size is too small, the additional overhead and latency of each request could cause your download to take much longer than necessary.
+
+
+Batch Query
+Combining uniqueness, the last timestamp and last key variables, filtering, field selection, and the batch size, we arrive at this query:
+
+
+https://query.ampre.ca/odata/Property
+?$select=ModificationTimestamp,ListingKey,StandardStatus,ListPrice
+&$filter=ContractStatus eq 'Available'
+and (ModificationTimestamp gt <last_timestamp_value>
+or (ModificationTimestamp eq <last_timestamp_value>
+and ListingKey gt '<last_key_value>'))
+&$orderby=ModificationTimestamp,ListingKey
+&$top=100
+
+
+note
+Remember to URL Encode query string values prior to sending HTTP requests. To aid with readability, the URLs in this document are displayed without URL encoding and wrapped over multiple lines.
+
+
+The same query used for the initial batch can be used with all subsequent batches. Remember to substitute the last timestamp and last key variables into each batch's query URL. Place them where you see <last_timestamp_value> and <last_key_value> in the above example query.
+
+
+When the the number of records returned from the query is less than the batch size (the number requested in the $top option), then the initial download is complete and you can stop the download process.
+
+
+Using $top and $skip
+caution
+Do not use $top and $skip for replication. $top and $skip are commonly used in Web API queries to limit the amount of data returned by the server. While they can be useful for improving the performance of individual requests, they should not be used for replication purposes. When replicating data, it's important to ensure that all records are transferred and that none are missed. Using $top and $skip can introduce the risk of missing records, especially if records are created or modified while the replication is in progress. Instead, replication should be performed using reliable methods such as timestamp and key-based techniques, which guarantee that all records are transferred in a consistent and accurate manner.
+
+
+The Problem with $top and $skip
+When utilizing $top and $skip, an issue arises when records are updated while multiple pages are requested sequentially. These updates can result in records being shifted into preceding pages, leading to them being overlooked by the ongoing requests. See the diagram below:
+
+
+Problem with Top and Skip
+
+
+If your implementation requires you to use $top and $skip
+Use both a timestamp and a unique key in the $orderby option. For example: $orderby=ModificationTimestamp,ListingKey
+Use a descending $orderby: $orderby=ModificationTimestamp,ListingKey desc. This will ensure that when records are modified during the download, this does not shift the $skip window in a way that causes records to be missed.
+Be prepared for individual records to appear in more than one batch, as this will happen when a record is modified while the download is in progress, which causes the $skip window to shift back.
+Do not filter by the timestamp field used in $orderby (e.g. ModificationTimestamp), as this will cause records to be missed when modifications happen while the download is in progress.
+There is a limit of 100,000 records for the $skip option, therefore $top and $skip can not be used to retrieve more than 100,000 records.
+Using a Single Query
+If the resource or subset of a resource that you intend to replicate contains fewer than 10,000 records, the initial download can be accomplished with a single query. Do not use this strategy unless the resource will never to grow beyond 10,000 records.
+
+
+Updates
+Once the initial download is complete and the replication process is underway, the system must constantly monitor the source database for changes and retrieve the updates as they occur. The process of retrieving updates typically involves comparing timestamps to determine which data has been modified since the last synchronization. The system then retrieves the updated data and applies it to the target database, ensuring that both databases remain in sync.
+
+
+In some cases, updates may be retrieved in bulk or incremental batches to minimize the impact on system performance. The frequency of updates and the method of retrieval will depend on the specific requirements of the application and the system resources available.
+
+
+Using a Timestamp and Key
+The procedure to retrieve updates using a timestamp and key is similar to the procedure for the initial download. A modification timestamp can be used to retrieve updates as they occur. The primary difference is the value of the last_timestamp_value variable used to initiate the process.
+
+
+Use the same batch query as the initial download, with the same unique key and last timestamp and last key variables.
+Use the same field selection.
+Use the same batch size.
+Initialize the last_timestamp_value and last_key_value variables to the values from the last record stored in the target database. Alternatively you may retrieve these variables from the filesystem or a database if you have persisted them there after the initial download and after each completed update batch.
+Follow the same batch query procedure from the initial download.
+Using $top and $skip
+It is not recommended to retrieve updates using $top and $skip, as it would require filtering by the timestamp field (e.g. ModificationTimestamp) which will cause missing records when records are modified during a run. Instead, you should use a single query, perform a full download using $top and $skip, or switch to using a timestamp and key.
+
+
+Using a Single Query
+If the resource or subset of a resource that you intend to replicate contains fewer than 10,000 updated records, then all updates can be retrieved with a single query. Do not use this strategy unless the number of updated records is less than or equal to 10,000 records. If the number is greater than 10,000 records, you'll need to use a timestamp and key or perform a full download.
+________________
+Add/Edit
+RESO Web API Add/Edit is used to create, update, or delete records.
+
+
+Supported Resources
+Property
+Create Draft
+To create a draft of a new record, send a POST request to the resource endpoint with the record data in the request body. The response will contain the new record.
+
+
+Request
+POST /odata/Property
+Content-Type: application/json
+Authorization: Bearer your-access-token-goes-here
+
+
+{
+  "ListAgentKey": "123456",
+  "ListOfficeKey": "7890",
+  "PropertyType": "Residential",
+  "StreetNumber": "123",
+  "StreetName": "Main St",
+  "City": "Springfield"
+}
+
+
+Note: The ListAgentKey and ListOfficeKey values are required, and must be valid keys from the Member resource.
+PropertyType, StreetNumber, StreetName, and City are required fields.
+Response
+{
+  "@odata.context": "$metadata#Property",
+  "City": "Springfield",
+  "ContractStatus": "Draft",
+  "ListAgentKey": "123456",
+  "ListingKey": "Draft654321",
+  "ListOfficeKey": "7890",
+  "MlsStatus": "Draft",
+  "ModificationTimestamp": "2024-10-09T19:34:45Z",
+  "OriginatingSystemName": "Example",
+  "PropertyType": "Residential",
+  "StandardStatus": "Incomplete",
+  "StreetName": "Main St",
+  "StreetNumber": "123"
+}
+
+
+Update Draft
+To update an existing draft, send a PATCH request to the resource endpoint with the record key and the updated data in the request body.
+
+
+PATCH /odata/Property('654321')
+Content-Type: application/json
+Authorization: Bearer your-access-token-goes-here
+
+
+{
+  "ListPrice": 110000,
+  "ChangedByMemberKey": "123456"
+}
+
+
+Note: The ChangedByMemberKey value is required and must be a valid key from the Member resource.
+Update Draft to Active
+To publish a draft, send a PATCH request to the resource endpoint with the record key.
+
+
+PATCH /odata/Property('654321')
+Content-Type: application/json
+Authorization: Bearer your-access-token-goes-here
+
+
+{
+  "StandardStatus": "Active",
+  "ChangedByMemberKey": "123456"
+}
+
+
+Note: The ChangedByMemberKey value is required and must be a valid key from the Member resource.
+Update Active
+To update an existing record, send a PATCH request to the resource endpoint with the record key and the updated data in the request body.
+
+
+PATCH /odata/Property('654321')
+Content-Type: application/json
+Authorization: Bearer your-access-token-goes-here
+
+
+{
+  "StandardStatus": "Sold",
+  "SoldPrice": 110000,
+  "ChangedByMemberKey": "123456"
+}
+
+
+Note: The ChangedByMemberKey value is required and must be a valid key from the Member resource.
+Delete
+To delete a record, send a DELETE request to the resource endpoint with the record ID.
+
+
+DELETE /odata/Property('654321')
+
+
+Error Response
+OData "4.01" specification defines the structure of an error response body:
+
+
+The representation of an error response body is format-specific. It consists at least of the following information:
+
+
+· code: required non-null, non-empty, language-independent string. Its value is a service-defined error code. This code serves as a sub-status for the HTTP error code specified in the response.
+
+
+· message: required non-null, non-empty, language-dependent, human-readable string describing the error. The Content-Language header MUST contain the language code from [RFC5646] corresponding to the language in which the value for message is written.
+
+
+· target: optional nullable, potentially empty string indicating the target of the error, for example, the name of the property in error.
+
+
+· details: optional, potentially empty collection of structured instances with code, message, and target following the rules above.
+
+
+· innererror: optional structured instance with service-defined content.
+
+
+Service implementations SHOULD carefully consider which information to include in production environments to guard against potential security concerns around information disclosure.
+
+
+Example Error Response
+HTTP/1.1 400 Bad Request
+
+
+{
+  "error": {
+    "code": "1111",
+    "message": "Property not saved due to bad data..",
+    "details": [
+      {
+        "code": "1105",
+        "message": "Value [foobar] is not valid for the field [Standard Status]. Field name [StandardStatus].",
+        "target": "StandardStatus"
+      }
+    ]
+  }
+}
+
+
+Field
+The Field Resource can be used to advertise metadata about the available fields on a given server in a way that is predictable and user friendly.
+
+
+See the Field Resource in the RESO Data Dictionary.
+
+
+Examples
+note
+Remember to URL Encode query string values prior to sending HTTP requests. To aid with readability, the URLs in this document are displayed without URL encoding and wrapped over multiple lines.
+
+
+Retrieve Field Records by ResourceName
+This query will retrieve the Field records with a ResourceName equal to Property:
+
+
+https://query.ampre.ca/odata/Field?$filter=ResourceName eq 'Property'
+
+
+History Transactional
+The History Transactional Resource is a transactional history of the listing. A separate record is generated showing the before and after value of any change to each field.
+
+
+See the History Transactional in the RESO Data Dictionary.
+
+
+Examples
+note
+Remember to URL Encode query string values prior to sending HTTP requests. To aid with readability, the URLs in this document are displayed without URL encoding and wrapped over multiple lines.
+
+
+Retrieve HistoryTransactional Records by LookupName
+This query will retrieve the HistoryTransactional records with ListingKey equal to 123456:
+
+
+https://query.ampre.ca/odata/HistoryTransactional?$filter=ListingKey eq '123456'
+
+
+Lookup
+The Lookup Resource can be used to convey metadata about lookups (enumerations) available on a given server, providing a streamlined way to deliver enumeration metadata to the consumer.
+
+
+See the Lookup Resource in the RESO Data Dictionary.
+
+
+Examples
+note
+Remember to URL Encode query string values prior to sending HTTP requests. To aid with readability, the URLs in this document are displayed without URL encoding and wrapped over multiple lines.
+
+
+Retrieve Lookup Records by LookupName
+This query will retrieve the Lookup records with LookupName equal to PropertyType:
+
+
+https://query.ampre.ca/odata/Lookup?$filter=LookupName eq 'PropertyType'
+
+
+Media
+The Media Resource is a database and informational representation of media, such as photos, virtual tours, documents/supplements, etc.
+
+
+See the Media Resource in the RESO Data Dictionary.
+
+
+caution
+Please note that the ModificationTimestamp of a Media record can change without changing the related listings ModificationTimestamp. If any media record for a listing changes, then the listings PhotosChangeTimestamp or DocumentsChangeTimestamp will be updated (as appropriate).
+
+
+You can query the Media resource independently of the Property resource and receive all photos and documents. You can also query the Property resource for changes in both its PhotosChangeTimestamp and DocumentsChangeTimestamp fields in order to determine if media records have changed.
+
+
+Examples
+note
+Remember to URL Encode query string values prior to sending HTTP requests. To aid with readability, the URLs in this document are displayed without URL encoding and wrapped over multiple lines.
+
+
+Retrieve a Media Record by MediaKey
+This query will retrieve the Media record with a MediaKey equal to 61400d19-417e-4f43-b36e-efffb352a128:
+
+
+https://query.ampre.ca/odata/Media('61400d19-417e-4f43-b36e-efffb352a128')
+
+
+Retrieve Recently Created/Modified Media Records
+This query will retrieve Media records of size 'Large' that have been created or modified after a specific date and time:
+
+
+https://query.ampre.ca/odata/Media
+?$filter=ImageSizeDescription eq 'Large'
+and ResourceName eq 'Property'
+and ModificationTimestamp ge 2023-07-27T04:00:00Z
+&$orderby=ModificationTimestamp,MediaKey
+
+
+Office Logos
+Office logos are stored in the Media resource. The Office record will contain a PhotosChangeTimestamp field indicating the last time the logo for the office was changed. This query will retrieve the logo for an Office with a OfficeKey equal to 123456:
+
+
+https://query.ampre.ca/odata/Media
+?$filter=ResourceRecordKey eq '123456'
+and ResourceName eq 'Office'
+&$orderby=ModificationTimestamp,MediaKey
+
+
+Member Photos
+Member photos (headshots) are stored in the Media resource. The Member record will contain a PhotosChangeTimestamp field indicating the last time the photo(s) for the member was changed. This query will retrieve the photos for a Member with a MemberKey equal to 123456:
+
+
+https://query.ampre.ca/odata/Media
+?$filter=ResourceRecordKey eq '123456'
+and ResourceName eq 'Member'
+&$orderby=ModificationTimestamp,MediaKey
+
+
+Member
+The Member Resource includes information on the roster of agents, brokers, appraisers, assistants, affiliates., etc. who are members of the MLS and/or association of REALTORS®.
+
+
+See the Member Resource in the RESO Data Dictionary.
+
+
+Examples
+note
+Remember to URL Encode query string values prior to sending HTTP requests. To aid with readability, the URLs in this document are displayed without URL encoding and wrapped over multiple lines.
+
+
+Retrieve a Member by MemberKey
+This query will retrieve the Member with a MemberKey equal to 123456:
+
+
+https://query.ampre.ca/odata/Member('123456')
+
+
+Retrieve All Members
+This first query will retrieve 1,000 Members ordered by MemberKey:
+
+
+https://query.ampre.ca/odata/Member?$top=1000&$orderby=MemberKey
+
+
+Subsequent queries should retrieve 1,000 Members ordered by MemberKey with MemberKey greater than the last MemberKey received in the previous batch:
+
+
+https://query.ampre.ca/odata/Member?$top=1000&$orderby=MemberKey
+&$filter=MemberKey gt '123456'
+
+
+Continue querying like this until the number of results is fewer than 1,000.
+
+
+Member Photos
+Member photos (headshots) are stored in the Media resource. The Member record will contain a PhotosChangeTimestamp field indicating the last time the photo(s) for the member was changed. This query will retrieve the photos for a Member with a MemberKey equal to 123456:
+
+
+https://query.ampre.ca/odata/Media
+?$filter=ResourceRecordKey eq '123456'
+and ResourceName eq 'Member'
+&$orderby=ModificationTimestamp,MediaKey
+
+
+Office
+The Office Resource includes the roster of offices who are members of the MLS and/or association of REALTORS®.
+
+
+See the Office Resource in the RESO Data Dictionary.
+
+
+Examples
+note
+Remember to URL Encode query string values prior to sending HTTP requests. To aid with readability, the URLs in this document are displayed without URL encoding and wrapped over multiple lines.
+
+
+Retrieve an Office by OfficeKey
+This query will retrieve the Office with an OfficeKey equal to 123456:
+
+
+https://query.ampre.ca/odata/Office('123456')
+
+
+Retrieve All Offices
+This first query will retrieve 1,000 Offices ordered by OfficeKey:
+
+
+https://query.ampre.ca/odata/Office?$top=1000&$orderby=OfficeKey
+
+
+Subsequent queries should retrieve 1,000 Offices ordered by OfficeKey with OfficeKey greater than the last OfficeKey received in the previous batch:
+
+
+https://query.ampre.ca/odata/Office?$top=1000&$orderby=OfficeKey
+&$filter=OfficeKey gt '123456'
+
+
+Continue querying like this until the number of results is fewer than 1,000.
+
+
+Office Logos
+Office logos are stored in the Media resource. The Office record will contain a PhotosChangeTimestamp field indicating the last time the logo for the office was changed. This query will retrieve the logo for an Office with a OfficeKey equal to 123456:
+
+
+https://query.ampre.ca/odata/Media
+?$filter=ResourceRecordKey eq '123456'
+and ResourceName eq 'Office'
+&$orderby=ModificationTimestamp,MediaKey
+
+
+Property
+The Property Resource includes fields commonly used in a Multiple Listing Service (MLS) listing.
+
+
+See the Property Resource in the RESO Data Dictionary.
+
+
+caution
+Please note that an update to a photo or document for a listing will only update the PhotosChangeTimestamp or DocumentsChangeTimestamp fields. The listing ModificationTimestamp will not be updated in this case.
+
+
+The ModificationTimestamp is changed when the core listing data is changed only.
+
+
+The Amplify system does not update a listings ModificationTimestamp if the only change is to a media record (photos or documents).
+
+
+Examples
+note
+Remember to URL Encode query string values prior to sending HTTP requests. To aid with readability, the URLs in this document are displayed without URL encoding and wrapped over multiple lines.
+
+
+Retrieve a Property by ListingKey
+This query will retrieve the Property with a ListingKey equal to 123456:
+
+
+https://query.ampre.ca/odata/Property('123456')
+
+
+Retrieve Available Properties by ModificationTimestamp
+This query will retrieve all Properties that are currently Available and have been modified after a specific date and time:
+
+
+https://query.ampre.ca/odata/Property
+?$filter=ContractStatus eq'Available'
+and ModificationTimestamp ge 2023-07-27T04:00:00Z
+&$orderby=ModificationTimestamp,ListingKey
+
+
+PropertyLandmark
+The PropertyLandmark Resource includes fields that describe landmarks near a property.
+
+
+Fields
+The following fields are available in the PropertyLandmark Resource:
+
+
+Field Name        Type        Description
+LandmarkKey        String        The unique identifier of the landmark as it relates to the listing.
+ListingKey        String        The unique identifier of the property listing.
+LandmarkType        String List, Single        The type of landmark (e.g., Waterbody).
+LandmarkName        String        The name of the landmark.
+Distance        Number        The distance from the property to the landmark.
+DistanceUnits        String List, Single        The units of measurement for the distance (always Meters).
+ClosestLatitude        Number        The latitude of the closest point on the edge of the landmark.
+ClosestLongitude        Number        The longitude of the closest point on the edge of the landmark.
+ModificationTimestamp        Timestamp        The timestamp of the last modification to the landmark data.
+Examples
+note
+Remember to URL Encode query string values prior to sending HTTP requests. To aid with readability, the URLs in this document are displayed without URL encoding and wrapped over multiple lines.
+
+
+Retrieve PropertyLandmarks for a Property
+This query will retrieve the PropertyLandmarks for a Property with a ListingKey equal to 123456:
+
+
+https://query.ampre.ca/odata/PropertyLandmark
+?$filter=ListingKey eq '123456'
+
+
+Retrieve ListingKeys within a Distance of a Landmark
+This query will retrieve the ListingKeys for properties within 100 meters of a landmark named "Lake Simcoe":
+
+
+https://query.ampre.ca/odata/PropertyLandmark
+?$filter=LandmarkType eq 'Waterbody' and LandmarkName eq 'Lake Simcoe'
+and Distance le 100
+
+
+PropertyRooms
+The PropertyRooms Resource includes fields that describe rooms within a property.
+
+
+See the PropertyRooms Resource in the RESO Data Dictionary.
+
+
+Examples
+note
+Remember to URL Encode query string values prior to sending HTTP requests. To aid with readability, the URLs in this document are displayed without URL encoding and wrapped over multiple lines.
+
+
+Retrieve PropertyRooms for a Property
+This query will retrieve the PropertyRooms for a Property with a ListingKey equal to 123456:
+
+
+https://query.ampre.ca/odata/PropertyRooms?$filter=ListingKey eq '123456'
+
+
+Timestamps
+Property
+The Property resource contains several logical timestamps indicating when changes are made to the record. The proper use of the timestamps will minimize the amount of data you are required to replicate. Improper use will simply cost you more in time and resources. Repeated improper use may result in hard limits being imposed.
+
+
+ModificationTimestamp
+This RESO Data Dictionary specified field is updated whenever the data of the Property record itself changes. This would be changes such as a status, price change or changing the amenity list. If you want to ensure all the property attribute information is up to date, use this field to pull changes.
+
+
+MajorChangeTimestamp
+This Data Dictionary specified field is updated whenever certain major fields change value in the property record. This is a subset of the property data and currently includes:
+
+
+MlsStatus
+ListPrice
+ListAgentKey
+ListOfficeKey
+Note that the Amplify system allows each customer to specify which fields are considered as a MajorChangeTimestamp change.
+
+
+PhotosChangeTimestamp
+This Data Dictionary field is kept in the Property record to reflect changes to the photos of a listing. Note that a change to PhotosChangeTimestamp DOES NOT change the ModificationTimestamp of the property record. A change to this field simply lets you know to check the Media resource for changes to the associated photos.
+
+
+DocumentsChangeTimestamp
+This Data Dictionary field is kept in the Property record to reflect changes to the documents of a listing. Note that a change to DocumentsChangeTimestamp DOES NOT change the ModificationTimestamp of the property record. A change to this field simply lets you know to check the Media resource for changes to the associated documents.
+
+
+MediaChangeTimestamp
+This Amplify field is kept in the Property record to reflect changes to the media of a listing. Note that a change to MediaChangeTimestamp DOES NOT change the ModificationTimestamp of the property record. A change to this field simply lets you know to check the Media resource for changes to the media records. It gives you a single value to check if you want changes for both photos and documents.
+
+
+PropertyRooms
+Changes to the PropertyRooms of a Property will be reflected in the Property.ModificationTimestamp field. You can also query rooms independently as an optimization.
+
+
+ModificationTimestamp
+This RESO Data Dictionary specified field is updated whenever the data of the PropertyRoom record itself changes. This would be changes such as a status or changing the amenity list. If you want to ensure all the room attribute information is up to date, use this field to pull changes.
+
+
+note
+Note that the Amplify system ensures that the RoomKey of a room never changes and is never re-used. If a room is deleted from the property, then that Amplify record will have its RoomStatus value changed to Deleted. It is a soft delete to help determine the set of changes needed without replacing all data.
+
+
+Media
+Changes to media records will cause the media related Property timestamps to update as indicated above.
+
+
+ModificationTimestamp
+This RESO Data Dictionary specified field is updated whenever a media record is changed.
+
+
+MediaModificationTimestamp
+This RESO Data Dictionary specified field is updated whenever a media record is changed.
+
+
+note
+Note that the Amplify systems that the MediaKey never changes and is never re-used. It a media record is deleted, then the MediaStatus value is changed to Deleted. It is a soft delete to help determine the set of changes needed without replacing all the data.
+
+
+note
+Data Dictionary notes a possible difference in behavior between ModificationTimestamp and MediaModificationTimestamp. Nominally this is to distinguish between a change in the photo/document binary versus a change to a description about one. In practice, changes to one without the other are rare. Amplify will update both values on any change to the media record.
+
+
+Defaults & Limits
+Defaults
+$top
+$top is defaulted to 100 records when no $top is specified in a query
+Limits
+$top and $skip
+$top is limited to 10,000 records
+$skip is limited to 100,000 records
+Rate Limit
+AMP Syndication imposes a rate limit of 60,000 requests per minute, per vendor account.
+
+
+Status Code
+The HTTP 429 status code, also known as "Too Many Requests", is an HTTP status code that is used to indicate that the client has made too many requests within a specified time window. This code is accompanied by the X-Rate-Limit-Retry-After-Seconds header, which communicates the time the client needs to wait before making another request. The purpose of the HTTP 429 response code is to protect the server from being overloaded by excessive requests and to prevent abuse or misuse of the API. When a client receives a 429 response, it should take the necessary action, such as reducing the rate of requests or waiting until the time specified in the X-Rate-Limit-Retry-After-Seconds header, before making another request.
+
+
+Response Headers
+The X-Rate-Limit-Remaining and X-Rate-Limit-Retry-After-Seconds are HTTP response headers used by AMP Syndication to communicate rate limiting information to clients.
+
+
+X-Rate-Limit-Remaining is included in most responses and indicates the number of remaining requests that can be made within the current rate limit window. This information can be used by clients to regulate the rate of requests and prevent reaching the limit and receiving error responses.
+
+
+X-Rate-Limit-Retry-After-Seconds is used in cases where the rate limit has been exceeded, and it tells the client the number of seconds it needs to wait before it can make another request.
