@@ -13,6 +13,8 @@ yarn-error.log*
 
 # Supabase
 .supabase/
+.branches/
+.temp/
 
 # IDE
 .vscode/
@@ -27,6 +29,9 @@ Thumbs.db
 # Logs
 logs
 *.log
+
+#docs
+docs/
 
 # Runtime data
 pids
