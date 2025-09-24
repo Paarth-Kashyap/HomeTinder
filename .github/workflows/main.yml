@@ -16,6 +16,9 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
+      
+      - name: Who am I
+        run: aws sts get-caller-identity
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
