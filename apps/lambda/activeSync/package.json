@@ -1,0 +1,19 @@
+{
+  "name": "@hometinder/lambda-sync",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "main": "dist/handler.mjs",
+  "scripts": {
+    "build": "esbuild src/handler.js --bundle --platform=node --target=node18 --format=esm --outfile=dist/handler.mjs",
+    "clean": "powershell -Command \"Remove-Item -Recurse -Force dist -ErrorAction SilentlyContinue\""
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.44.3",
+    "dotenv": "^17.2.2",
+    "p-limit": "^5.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.10"
+  }
+}

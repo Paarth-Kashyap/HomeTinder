@@ -124,7 +124,8 @@ async function insertPropertyAndMedia(record) {
     bathrooms: record.BathroomsTotalInteger,
     property_type: record.PropertyType,
     last_timestamp: record.ModificationTimestamp,
-    last_key: record.ListingKey
+    last_key: record.ListingKey,
+    is_active: "true"
   }, { onConflict: "mls_number" });
 
   if (propError) console.error("Property insert error:", propError);
