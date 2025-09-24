@@ -1,6 +1,6 @@
 {
   "devDependencies": {
-    "supabase": "^2.40.7"
+    "supabase": "^2.45.5"
   },
   "name": "hometinder",
   "version": "1.0.0",
