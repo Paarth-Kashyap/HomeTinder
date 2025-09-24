@@ -54,7 +54,7 @@ async function fetchAllActiveMLS() {
 /**
  * Main inactive sync logic
  */
-export async function runInactiveSync() {
+export async function runSyncDB() {
   console.log("Running inactive sync...");
 
   // 1. Get all MLS in TREB feed
