@@ -1,4 +1,4 @@
-import { syncDB } from "./sync.js";
+import { runSyncDB } from "./sync.js";
 
 export const handler = async () => {
   try {
