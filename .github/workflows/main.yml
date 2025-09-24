@@ -1,0 +1,43 @@
+name: Deploy Lambdas
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Install AWS CLI
+        run: sudo apt-get install -y awscli zip
+
+        # Deploy HomeTinderDBPopulate (Replicator)
+      - name: Build and Deploy HomeTinderDBPopulate
+        run: |
+          cd apps/lambda/replicator
+          npm install
+          zip -r ../../../../replicator.zip .
+          aws lambda update-function-code \
+            --function-name HomeTinderDBPopulate \
+            --zip-file fileb://../../../../replicator.zip \
+            --region ${{ secrets.AWS_REGION }}
+
+      # Deploy HomeTinderDBSync (ActiveSync)
+      - name: Build and Deploy HomeTinderDBSync
+        run: |
+          cd apps/lambda/activeSync
+          npm install
+          zip -r ../../../../activeSync.zip .
+          aws lambda update-function-code \
+            --function-name HomeTinderDBSync \
+            --zip-file fileb://../../../../activeSync.zip \
+            --region ${{ secrets.AWS_REGION }}
