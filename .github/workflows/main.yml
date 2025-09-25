@@ -1,0 +1,50 @@
+name: Deploy Lambdas
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Who am I
+        run: aws sts get-caller-identity
+
+        # Deploy HomeTinderDBPopulate (Replicator)
+      - name: Build and Deploy HomeTinderDBPopulate
+        run: |
+          cd apps/lambda/replicator
+          npm install
+          zip -r ../../../../replicator.zip .
+          aws lambda update-function-code \
+            --function-name HomeTinderDBPopulate \
+            --zip-file fileb://../../../../replicator.zip \
+            --region ${{ secrets.AWS_REGION }}
+
+      # Deploy HomeTinderDBSync (ActiveSync)
+      - name: Build and Deploy HomeTinderDBSync
+        run: |
+          cd apps/lambda/activeSync
+          npm install
+          zip -r ../../../../activeSync.zip .
+          aws lambda update-function-code \
+            --function-name HomeTinderDBSync \
+            --zip-file fileb://../../../../activeSync.zip \
+            --region ${{ secrets.AWS_REGION }}
