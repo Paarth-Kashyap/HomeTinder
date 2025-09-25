@@ -10,65 +10,87 @@ interface Property {
   bathrooms: number;
   property_type: string;
 }
+
 interface Media {
   mls_number: string;
   image_urls: string[];
 }
 
-serve(async () => {
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+// ✅ CORS headers
+const corsHeaders = {
+  "Access-Control-Allow-Origin": Deno.env.get("FRONTEND_URL") || "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Content-Type": "application/json",
+};
 
-  // 1. Fetch properties
-  const { data: properties, error } = await supabase
-    .from("properties")
-    .select("mls_number,address,city,price,bedrooms,bathrooms,property_type")
-    .eq("is_active", true)
-    .order("last_timestamp", { ascending: false })
-    .limit(50);
-
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
-  if (!properties || properties.length === 0) {
-    return new Response(JSON.stringify([]), { headers: { "Content-Type": "application/json" } });
+  try {
+    // 1. Extract JWT from Authorization header
+    const authHeader = req.headers.get("Authorization");
+    const token = authHeader?.split(" ")[1];
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+    }
+
+    // 2. Use ANON key to verify JWT
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!
+    );
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401, headers: corsHeaders });
+    }
+
+    // 3. Use SERVICE key for DB queries after user is verified
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Fetch properties
+    const { data: properties, error } = await supabase
+      .from("properties")
+      .select("mls_number,address,city,price,bedrooms,bathrooms,property_type")
+      .eq("is_active", true)
+      .order("last_timestamp", { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+    if (!properties || properties.length === 0) {
+      return new Response(JSON.stringify([]), { headers: corsHeaders });
+    }
+
+    // Fetch media for properties
+    const mlsNumbers = properties.map((p: Property) => p.mls_number);
+    const { data: media, error: mediaError } = await supabase
+      .from("media")
+      .select("mls_number,image_urls")
+      .in("mls_number", mlsNumbers);
+
+    if (mediaError) throw mediaError;
+
+    // Merge media into properties
+    const mediaMap: Record<string, string[]> = {};
+    for (const m of media || []) {
+      if (!mediaMap[m.mls_number]) mediaMap[m.mls_number] = [];
+      mediaMap[m.mls_number].push(...m.image_urls);
+    }
+
+    const result = properties.map((p: Property) => ({
+      ...p,
+      images: mediaMap[p.mls_number] || [],
+    }));
+
+    return new Response(JSON.stringify(result), { headers: corsHeaders });
+
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
   }
-
-  // 2. Extract MLS numbers
-  const mlsNumbers = properties.map((p:Property) => p.mls_number);
-
-  // 3. Fetch media for these MLS numbers
-  const { data: media, error: errorM } = await supabase
-    .from("media")
-    .select("mls_number,image_urls")
-    .in("mls_number", mlsNumbers);
-
-  if (media) {
-  media.sort((a:Media, b:Media) => mlsNumbers.indexOf(a.mls_number) - mlsNumbers.indexOf(b.mls_number));
-}
-
-  if (errorM) {
-    return new Response(JSON.stringify({ error: errorM.message }), { status: 500 });
-  }
-
-  // 4. Build a lookup map for media
-  const mediaMap: Record<string, string[]> = {};
-  for (const m of media || []) {
-    if (!mediaMap[m.mls_number]) mediaMap[m.mls_number] = [];
-    mediaMap[m.mls_number].push(...m.image_urls);
-  }
-
-  // 5. Merge media into properties
-  const result = properties.map((p:Property) => ({
-    ...p,
-    images: mediaMap[p.mls_number] || []
-  }));
-
-  // 6. Return combined result
-  return new Response(JSON.stringify(result), {
-    headers: { "Content-Type": "application/json" },
-  });
 });
