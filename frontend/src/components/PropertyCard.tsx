@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, type PanInfo } from 'framer-motion';
+import { motion, type PanInfo, useMotionValue, useTransform } from 'framer-motion';
 import type { Property } from '../types';
 
 interface PropertyCardProps {
@@ -7,6 +7,8 @@ interface PropertyCardProps {
   onSwipe: (direction: 'left' | 'right') => void;
   onLike: () => void;
   onDislike: () => void;
+  isFront?: boolean;
+  className?: string;
 }
 
 export const PropertyCard: React.FC<PropertyCardProps> = ({
@@ -14,8 +16,12 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
   onSwipe,
   onLike,
   onDislike,
+  isFront = true,
+  className,
 }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, [-300, 0, 300], [-12, 0, 12]);
 
   const handleDragEnd = (_event: any, info: PanInfo) => {
     const threshold = 100;
@@ -50,18 +56,19 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
   return (
     <motion.div
-      className="relative w-full max-w-sm mx-auto bg-white rounded-2xl shadow-xl overflow-hidden"
-      drag="x"
-      dragConstraints={{ left: 0, right: 0 }}
-      dragElastic={0.2}
-      onDragEnd={handleDragEnd}
-      whileDrag={{ scale: 1.05 }}
-      initial={{ scale: 0.8, opacity: 0 }}
+      className={`relative w-full max-w-2xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden ${className || ''}`}
+      drag={isFront ? 'x' : false}
+      dragConstraints={isFront ? { left: 0, right: 0 } : undefined}
+      dragElastic={isFront ? 0.2 : undefined}
+      onDragEnd={isFront ? handleDragEnd : undefined}
+      whileDrag={isFront ? { scale: 1.03 } : undefined}
+      initial={{ scale: 0.95, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      exit={{ scale: 0.8, opacity: 0 }}
+      exit={{ scale: 0.95, opacity: 0 }}
+      style={{ pointerEvents: isFront ? 'auto' : 'none', x: isFront ? x : undefined, rotate: isFront ? rotate : undefined }}
     >
       {/* Image Section */}
-      <div className="relative h-80 bg-gray-200">
+      <div className="relative h-[340px] sm:h-[420px] lg:h-[48vh] bg-gray-200">
         {property.images.length > 0 ? (
           <>
             <img
@@ -114,9 +121,9 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       </div>
 
       {/* Content Section */}
-      <div className="p-6">
+      <div className="p-5 lg:p-6">
         <div className="flex justify-between items-start mb-2">
-          <h3 className="text-2xl font-bold text-gray-900">
+          <h3 className="text-3xl lg:text-4xl font-extrabold text-gray-900">
             {formatPrice(property.price)}
           </h3>
           <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
@@ -124,11 +131,11 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           </span>
         </div>
         
-        <h4 className="text-lg font-semibold text-gray-800 mb-1">
+        <h4 className="text-xl lg:text-2xl font-semibold text-gray-800 mb-1">
           {property.address}
         </h4>
         
-        <p className="text-gray-600 mb-4">{property.city}</p>
+        <p className="text-gray-600 mb-4 text-base lg:text-lg">{property.city}</p>
         
         <div className="flex items-center space-x-4 text-sm text-gray-600">
           <div className="flex items-center">
@@ -143,26 +150,28 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-4">
-        <button
-          onClick={() => {
-            onSwipe('left');
-            onDislike();
-          }}
-          className="bg-red-500 hover:bg-red-600 text-white p-3 rounded-full shadow-lg transition-colors"
-        >
-          ❌
-        </button>
-        <button
-          onClick={() => {
-            onSwipe('right');
-            onLike();
-          }}
-          className="bg-green-500 hover:bg-green-600 text-white p-3 rounded-full shadow-lg transition-colors"
-        >
-          ❤️
-        </button>
-      </div>
+      {isFront && (
+        <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 flex space-x-4">
+          <button
+            onClick={() => {
+              onSwipe('left');
+              onDislike();
+            }}
+            className="bg-red-500 hover:bg-red-600 text-white p-4 rounded-full shadow-xl transition-colors"
+          >
+            ❌
+          </button>
+          <button
+            onClick={() => {
+              onSwipe('right');
+              onLike();
+            }}
+            className="bg-green-500 hover:bg-green-600 text-white p-4 rounded-full shadow-xl transition-colors"
+          >
+            ❤️
+          </button>
+        </div>
+      )}
     </motion.div>
   );
 };

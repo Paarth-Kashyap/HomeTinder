@@ -1,33 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { getUserPreferences } from '../lib/supabase';
-import type { UserPreference } from '../types';
+import { getUserProperties } from '../lib/supabase'; // <-- use the edge function wrapper
+import type { Property } from '../types';
 
 export const LikesPage: React.FC = () => {
   const { user } = useAuth();
-  const [preferences, setPreferences] = useState<UserPreference[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'likes' | 'dislikes'>('likes');
 
   useEffect(() => {
-    const fetchPreferences = async () => {
+    const fetchProperties = async () => {
       if (!user) return;
-      
+
       try {
-        const data = await getUserPreferences();
-        setPreferences(data);
+        const data = await getUserProperties(); 
+        setProperties(data || []);
       } catch (error) {
-        console.error('Failed to fetch preferences:', error);
+        console.error('Failed to fetch liked/disliked properties:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPreferences();
+    fetchProperties();
   }, [user]);
 
-  const likedProperties = preferences.filter(p => p.action === 'like');
-  const dislikedProperties = preferences.filter(p => p.action === 'dislike');
+  // Split properties into liked/disliked
+  const likedProperties = properties.filter((p: any) => p.status === 'liked');
+  const dislikedProperties = properties.filter((p: any) => p.status === 'disliked');
+
+  console.log(likedProperties)
 
   if (loading) {
     return (
@@ -73,53 +76,72 @@ export const LikesPage: React.FC = () => {
         {/* Content */}
         <div className="space-y-6">
           {activeTab === 'likes' ? (
-            <div>
-              {likedProperties.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4">💔</div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No Liked Properties Yet</h3>
-                  <p className="text-gray-600">Start swiping to find properties you love!</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {likedProperties.map((preference) => (
-                    <div key={preference.id} className="card p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-gray-900">MLS #{preference.mls_number}</h3>
-                        <span className="text-green-600 text-sm">❤️ Liked</span>
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        Liked on {new Date(preference.created_at).toLocaleDateString()}
-                      </p>
+            likedProperties.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">💔</div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">No Liked Properties Yet</h3>
+                <p className="text-gray-600">Start swiping to find properties you love!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {likedProperties.map((p: any) => (
+                  <div key={p.property.id} className="bg-white p-6 rounded-lg shadow-sm">
+                    {/* If media exists, show first image */}
+                    {p.property.media?.[0]?.image_urls && (
+                      <img
+                        src={p.property.media[0].image_urls}
+                        alt={`MLS #${p.property.mls_number}`}
+                        className="w-full h-48 object-cover rounded-md mb-4"
+                      />
+                    )}
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-gray-900">MLS #{p.property.mls_number}</h3>
+                      <span className="text-green-600 text-sm">❤️ Liked</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    <p className="text-sm text-gray-600">
+                      Liked on {new Date(p.property.created_at).toLocaleDateString()}
+                    </p>
+                    <p className="text-gray-800 mt-2">{p.property.address}</p>
+                    <p className="text-gray-600">
+                      ${p.property.price?.toLocaleString()} • {p.property.bedrooms} bd • {p.property.bathrooms} ba
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )
           ) : (
-            <div>
-              {dislikedProperties.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4">👍</div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No Disliked Properties</h3>
-                  <p className="text-gray-600">You haven't disliked any properties yet.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {dislikedProperties.map((preference) => (
-                    <div key={preference.id} className="card p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-gray-900">MLS #{preference.mls_number}</h3>
-                        <span className="text-red-600 text-sm">❌ Disliked</span>
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        Disliked on {new Date(preference.created_at).toLocaleDateString()}
-                      </p>
+            dislikedProperties.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">👍</div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">No Disliked Properties</h3>
+                <p className="text-gray-600">You haven't disliked any properties yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {dislikedProperties.map((p: any) => (
+                  <div key={p.property.id} className="bg-white p-6 rounded-lg shadow-sm">
+                    {p.property.media?.[0]?.image_urls && (
+                      <img
+                        src={p.property.media[0].image_urls}
+                        alt={`MLS #${p.property.mls_number}`}
+                        className="w-full h-48 object-cover rounded-md mb-4"
+                      />
+                    )}
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-gray-900">MLS #{p.property.mls_number}</h3>
+                      <span className="text-red-600 text-sm">❌ Disliked</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    <p className="text-sm text-gray-600">
+                      Disliked on {new Date(p.property.created_at).toLocaleDateString()}
+                    </p>
+                    <p className="text-gray-800 mt-2">{p.property.address}</p>
+                    <p className="text-gray-600">
+                      ${p.property.price?.toLocaleString()} • {p.property.bedrooms} bd • {p.property.bathrooms} ba
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )
           )}
         </div>
       </div>

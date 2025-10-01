@@ -125,6 +125,7 @@ async function insertPropertyAndMedia(record) {
     property_type: record.PropertyType,
     last_timestamp: record.ModificationTimestamp,
     last_key: record.ListingKey,
+    description: record.PublicRemarks,
     is_active: "true"
   }, { onConflict: "mls_number" });
 
