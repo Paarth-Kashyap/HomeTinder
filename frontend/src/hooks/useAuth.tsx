@@ -60,7 +60,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error("Please check your email to confirm your account.");
     }
 
-    return data.user;
   };
 
   const signIn = async (email: string, password: string) => {
