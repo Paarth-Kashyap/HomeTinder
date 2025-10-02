@@ -66,6 +66,37 @@ export const removeUserProperty = async (mls_number: string) => {
     return data;
 };
 
+export const fetchUserFeed = async () => {
+  const headers = await withAuthHeaders();
+
+  const { data, error } = await supabase.functions.invoke("swipe", {
+    method: "POST",
+    headers,
+    body: { route: "feed" },
+  });
+
+  if (error) {
+    console.error("fetchUserFeed error:", error);
+    throw error;
+  }
+  const normalized: Listing[] = (data || []).map((item: any) => ({
+    mls_number: item.mls_number,
+    address: item.address,
+    city: item.city,
+    price: item.price,
+    bedrooms: item.bedrooms,
+    bathrooms: item.bathrooms,
+    property_type: item.property_type,
+    images: Array.isArray(item.media?.image_urls)
+      ? item.media.image_urls
+      : [], // always a string[]
+    id: item.id,
+    status: item.status ?? "unknown",
+    created_at: item.created_at,
+  }));
+  return normalized;
+};
+
 // -------- MATCHES (Edge Functions) --------
 export async function getUserProperties() {
   

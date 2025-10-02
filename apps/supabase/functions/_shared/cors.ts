@@ -6,10 +6,9 @@ export const corsHeaders: Record<string, string> = {
   };
   
   // Simple helper for preflight OPTIONS
-  export function handleOptions(req: Request): Response | null {
-    if (req.method === "OPTIONS") {
-      return new Response("ok", { headers: corsHeaders });
-    }
-    return null;
+export function handleOptions(req: Request): Response | null {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
-  
+  return null;
+}

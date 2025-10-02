@@ -1,58 +1,70 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { PropertyCard } from './PropertyCard';
-import { useProperties } from '../hooks/useProperties';
-import { saveUserProperties, supabase } from '../lib/supabase';
+import React, { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { PropertyCard } from "./PropertyCard";
+import { saveUserProperties, fetchUserFeed } from "../lib/supabase";
+import type { Listing } from "../types";
 
 export const PropertySwiper: React.FC = () => {
-  const { data: properties, isLoading, error, refreshRandomBatch } = useProperties();
+  const [properties, setProperties] = useState<Listing[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [swipedProperties, setSwipedProperties] = useState<Set<string>>(new Set());
 
-  // Filter out already swiped properties
-  const availableProperties = properties?.filter(
-    (property) => !swipedProperties.has(property.mls_number)
-  ) || [];
+  const currentProperty = properties[currentIndex];
+  const queue = properties.slice(currentIndex + 1, currentIndex + 4);
 
-  const currentProperty = currentIndex < availableProperties.length ? availableProperties[currentIndex] : undefined;
-  const queue = availableProperties.slice(currentIndex + 1, currentIndex + 4);
-
-  const handleSwipe = async (_direction: 'left' | 'right') => {
-    if (!currentProperty) return;
-    
-    setSwipedProperties(prev => new Set([...prev, currentProperty.mls_number]));
-    setCurrentIndex(prev => prev + 1);
-
-    // If we have less than 1 remaining in the queue, trigger fresh batch
-    if (currentIndex + 2 >= availableProperties.length) {
-      await refreshRandomBatch();
-      setSwipedProperties(new Set());
+  // 🔹 Fetch feed from Edge Function
+  const fetchFeed = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await fetchUserFeed();
+      setProperties(data || []);
       setCurrentIndex(0);
+    } catch (err: any) {
+      console.error("❌ Failed to fetch properties:", err);
+      setError("Could not load properties.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFeed();
+  }, [fetchFeed]);
+
+  const handleSwipe = async (_direction: "left" | "right") => {
+    if (!currentProperty) return;
+
+    setCurrentIndex((prev) => prev + 1);
+
+    // If near the end, refresh with a new batch
+    if (currentIndex + 2 >= properties.length) {
+      await fetchFeed();
     }
   };
 
   const handleLike = async () => {
-    if (!currentProperty) return;
-    
-    try {
-      await saveUserProperties(currentProperty.mls_number, 'liked');
-    } catch (error) {
-      console.error('Failed to save like:', error);
+    if (currentProperty) {
+      try {
+        await saveUserProperties(currentProperty.mls_number, "liked");
+      } catch (error) {
+        console.error("❌ Failed to save like:", error);
+      }
     }
   };
 
   const handleDislike = async () => {
-    if (!currentProperty) return;
-    
-    try {
-      const { data } = await supabase.auth.getSession();
-      console.log("ACCESS TOKEN:", data.session?.access_token);
-      await saveUserProperties(currentProperty.mls_number, 'disliked');
-    } catch (error) {
-      console.error('Failed to save dislike:', error);
+    if (currentProperty) {
+      try {
+        await saveUserProperties(currentProperty.mls_number, "disliked");
+      } catch (error) {
+        console.error("❌ Failed to save dislike:", error);
+      }
     }
   };
 
+  // 🔹 Render states
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -69,28 +81,30 @@ export const PropertySwiper: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-500 text-4xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Properties</h2>
-          <p className="text-gray-600">Please try again later.</p>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Error Loading Properties
+          </h2>
+          <p className="text-gray-600">{error}</p>
+          <button onClick={fetchFeed} className="btn-primary mt-4">
+            Try Again
+          </button>
         </div>
       </div>
     );
   }
 
-  if (!isLoading && availableProperties.length === 0) {
+  if (!properties.length) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4">🏠</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">No More Properties!</h2>
-          <p className="text-gray-600 mb-6">You've seen all available properties.</p>
-          <button
-            onClick={() => {
-              refreshRandomBatch();
-              setSwipedProperties(new Set());
-              setCurrentIndex(0);
-            }}
-            className="btn-primary"
-          >
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            No More Properties!
+          </h2>
+          <p className="text-gray-600 mb-6">
+            You've seen all available properties.
+          </p>
+          <button onClick={fetchFeed} className="btn-primary">
             Start Over
           </button>
         </div>
@@ -98,14 +112,17 @@ export const PropertySwiper: React.FC = () => {
     );
   }
 
+  // 🔹 Main render
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Discover Homes</h1>
+          <h1 className="text-3xl font-extrabold text-gray-900 mb-2">
+            Discover Homes
+          </h1>
           <p className="text-gray-600">
-            {availableProperties.length} properties remaining
+            {properties.length - currentIndex} properties remaining
           </p>
         </div>
 
@@ -113,9 +130,9 @@ export const PropertySwiper: React.FC = () => {
         <div className="relative h-[75vh] max-h-[900px]">
           {/* Background queued cards */}
           {queue.map((property, idx) => {
-            const translateX = 40 + idx * 28; // px
-            const translateY = 30 + idx * 22; // px
-            const rotate = -6 + idx * 3; // deg
+            const translateX = 40 + idx * 28;
+            const translateY = 30 + idx * 22;
+            const rotate = -6 + idx * 3;
             const scale = 0.86 - idx * 0.08;
             const opacity = 0.65 - idx * 0.1;
             return (
@@ -124,10 +141,10 @@ export const PropertySwiper: React.FC = () => {
                 className="absolute inset-0 flex items-center justify-center"
                 style={{
                   transform: `translate(${translateX}px, ${translateY}px) rotate(${rotate}deg) scale(${scale})`,
-                  transformOrigin: 'center top',
+                  transformOrigin: "center top",
                   zIndex: 1 + idx,
                   opacity,
-                  filter: 'saturate(0.9) contrast(0.98)',
+                  filter: "saturate(0.9) contrast(0.98)",
                 }}
               >
                 <PropertyCard

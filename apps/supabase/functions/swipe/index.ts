@@ -15,12 +15,12 @@ serve(async (req) => {
 
   try {
     let body: any = {};
-    if (req.method === "POST" || req.method === "DELETE" || req.method === "GET") {
+    if (req.method === "POST" || req.method === "DELETE") {
       body = await req.json().catch(() => ({}));
     }
-    
     switch (body.route) {
       case "feed":
+        console.log("HITTING THE RIGHT SPOT", body);
         return await getFeed(req);
       case "swipe":
         return await saveSwipe(req, body);
@@ -71,12 +71,16 @@ async function getFeed(req: Request) {
     .eq("user_id", user.id);
 
   const swipedIds = swiped?.map((s) => s.mls_number) || [];
-  
+  console.log("SWIPED IDS: ", swipedIds);
   // query properties with filters
   let query = supabaseAdmin
-    .from("properties")
-    .select("*, media:media(*)")
-    .not("mls_number", "in", swipedIds);
+  .from("properties")
+  .select("*, media:media!inner(*)");
+
+  // exclude swiped ones (ANDing a bunch of .neq is fine)
+  for (const id of swipedIds) {
+    query = query.neq("mls_number", id);
+  }
 
   if (prefs) {
     if (prefs.min_price) query = query.gte("price", prefs.min_price);
@@ -85,10 +89,10 @@ async function getFeed(req: Request) {
 
   const { data: properties, error } = await query
     .order("created_at", { ascending: false })
-    .limit(25);
+    .limit(50);
 
   if (error) throw error;
-
+  
   return new Response(JSON.stringify(properties), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
