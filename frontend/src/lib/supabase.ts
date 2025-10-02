@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Property } from '../types';
+import type { Listing } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -10,67 +10,79 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// API functions
-export const fetchProperties = async (): Promise<Property[]> => {
-  const apiUrl = import.meta.env.VITE_SUPABASE_API_URL;
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
+async function withAuthHeaders() {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) throw new Error("Not authenticated");
+  return { Authorization: `Bearer ${data.session.access_token}` };
+}
 
-  console.log("TOKEN: ", token);
+// -------- SWIPE (Edge Functions) --------
+export async function saveUserProperties(
+  mls_number: string,
+  status: "liked" | "disliked",
+  sessionId?: string,
+  timeToDecision?: number
+) {
+  const headers = await withAuthHeaders();
+  const { data, error } = await supabase.functions.invoke("swipe", {
+    method: "POST",
+    headers,
+    body: { route: "swipe", mls_number: mls_number, status, session_id: sessionId, time_to_decision: timeToDecision },
+  });
+  if (error) throw error;
+  return data;
+}
 
-  const response = await fetch(`${apiUrl}/properties`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+export const removeUserProperty = async (mls_number: string) => {
+
+    const headers = await withAuthHeaders();
+    const { data, error } = await supabase.functions.invoke("swipe", {
+      method: "DELETE",
+      headers,
+      body: { route: "unswipe", mls_number: mls_number},
+    });
+    if (error) throw error;
+
+    return data;
+};
+
+export const fetchUserFeed = async () => {
+  const headers = await withAuthHeaders();
+
+  const { data, error } = await supabase.functions.invoke("swipe", {
+    method: "POST",
+    headers,
+    body: { route: "feed" },
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to fetch properties');
+  if (error) {
+    console.error("fetchUserFeed error:", error);
+    throw error;
   }
-
-  return response.json();
+  const normalized: Listing[] = (data || []).map((item: any) => ({
+    mls_number: item.mls_number,
+    address: item.address,
+    city: item.city,
+    price: item.price,
+    bedrooms: item.bedrooms,
+    bathrooms: item.bathrooms,
+    property_type: item.property_type,
+    images: Array.isArray(item.media?.image_urls)
+      ? item.media.image_urls
+      : [], // always a string[]
+    id: item.id,
+    status: item.status ?? "unknown",
+    created_at: item.created_at,
+  }));
+  return normalized;
 };
 
-export const saveUserPreference = async (
-  mlsNumber: string, 
-  action: 'like' | 'dislike'
-) => {
-  const { data: { user } } = await supabase.auth.getUser();
+// -------- MATCHES (Edge Functions) --------
+export async function getUserProperties() {
   
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-
-  const { error } = await supabase
-    .from('user_preferences')
-    .upsert({
-      user_id: user.id,
-      mls_number: mlsNumber,
-      action,
-    });
-
-  if (error) {
-    throw new Error('Failed to save preference');
-  }
-};
-
-export const getUserPreferences = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-
-  const { data, error } = await supabase
-    .from('user_preferences')
-    .select('*')
-    .eq('user_id', user.id);
-
-  if (error) {
-    throw new Error('Failed to fetch preferences');
-  }
-
+  const { data, error } = await supabase.functions.invoke("matches", {
+    headers: await withAuthHeaders(),
+  });
+  if (error) throw error;
   return data;
-};
-
+}
