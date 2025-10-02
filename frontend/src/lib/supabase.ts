@@ -16,26 +16,6 @@ async function withAuthHeaders() {
   return { Authorization: `Bearer ${data.session.access_token}` };
 }
 
-// -------- PROPERTIES (temp direct call until feed Edge Function is solid) --------
-export const fetchProperties = async (): Promise<Listing[]> => {
-  const apiUrl = import.meta.env.VITE_SUPABASE_API_URL;
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
-
-  const response = await fetch(`${apiUrl}/properties`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch properties');
-  }
-
-  return response.json();
-};
-
 // -------- SWIPE (Edge Functions) --------
 export async function saveUserProperties(
   mls_number: string,

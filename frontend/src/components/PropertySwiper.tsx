@@ -119,7 +119,7 @@ export const PropertySwiper: React.FC = () => {
         {/* Header */}
         <div className="text-center mb-6">
           <h1 className="text-3xl font-extrabold text-gray-900 mb-2">
-            Discover Homes
+            Discover Your Next Home
           </h1>
           <p className="text-gray-600">
             {properties.length - currentIndex} properties remaining

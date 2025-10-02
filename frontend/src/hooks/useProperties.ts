@@ -1,12 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchProperties } from '../lib/supabase';
+import { fetchUserFeed } from '../lib/supabase';
 import type { Listing } from '../types';
 
 export const useProperties = () => {
   const queryClient = useQueryClient();
   const query = useQuery<Listing[]>({
     queryKey: ['properties', { seed: 0 }],
-    queryFn: fetchProperties,
+    queryFn: fetchUserFeed,
     staleTime: 0,
     gcTime: 0,
   });
@@ -14,7 +14,7 @@ export const useProperties = () => {
   const refreshRandomBatch = async () => {
     const seed = Math.random();
     await queryClient.invalidateQueries({ queryKey: ['properties'] });
-    await queryClient.fetchQuery({ queryKey: ['properties', { seed }], queryFn: fetchProperties });
+    await queryClient.fetchQuery({ queryKey: ['properties', { seed }], queryFn: fetchUserFeed });
   };
 
   return { ...query, refreshRandomBatch } as typeof query & { refreshRandomBatch: () => Promise<void> };
