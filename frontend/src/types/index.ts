@@ -1,4 +1,4 @@
-export interface Property {
+export interface Listing {
   mls_number: string;
   address: string;
   city: string;
@@ -7,6 +7,9 @@ export interface Property {
   bathrooms: number;
   property_type: string;
   images: string[];
+  status?: 'liked' | 'disliked';
+  created_at: string;
+  id: number; 
 }
 
 export interface User {

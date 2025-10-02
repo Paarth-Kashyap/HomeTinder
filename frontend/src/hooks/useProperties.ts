@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchProperties } from '../lib/supabase';
-import type { Property } from '../types';
+import type { Listing } from '../types';
 
 export const useProperties = () => {
   const queryClient = useQueryClient();
-  const query = useQuery<Property[]>({
+  const query = useQuery<Listing[]>({
     queryKey: ['properties', { seed: 0 }],
     queryFn: fetchProperties,
     staleTime: 0,

@@ -10,16 +10,12 @@ const supabaseAdmin = createClient(
 
 serve(async (req) => {
   // Handle preflight CORS
- 
-
   const cors = handleOptions(req);
   if (cors) return cors;
 
-
-  
   try {
     let body: any = {};
-    if (req.method === "POST") {
+    if (req.method === "POST" || req.method === "DELETE" || req.method === "GET") {
       body = await req.json().catch(() => ({}));
     }
     
@@ -28,6 +24,8 @@ serve(async (req) => {
         return await getFeed(req);
       case "swipe":
         return await saveSwipe(req, body);
+      case "unswipe":
+        return await unsaveSwipe(req, body);
 
       default:
         return new Response("Not Found", {
@@ -116,6 +114,45 @@ async function saveSwipe(req: Request, body: any) {
     created_at: new Date().toISOString(),
   });
   if (error) throw error;
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+/**
+ * DELETE /unswipe
+ */
+async function unsaveSwipe(req: Request, body: any) {
+  const user = await getUserFromReq(req);
+
+  const { mls_number } = body;
+  if (!mls_number) {
+    return new Response(
+      JSON.stringify({ error: "mls_number required" }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  }
+
+  const { error } = await supabaseAdmin
+    .from("user_properties")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("mls_number", mls_number);
+
+  if (error) {
+    console.error("Error deleting swipe:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  }
 
   return new Response(JSON.stringify({ success: true }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },

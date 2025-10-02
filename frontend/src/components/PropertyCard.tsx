@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { motion, type PanInfo, useMotionValue, useTransform } from 'framer-motion';
-import type { Property } from '../types';
+import type { Listing } from '../types';
 
 interface PropertyCardProps {
-  property: Property;
+  property: Listing;
   onSwipe: (direction: 'left' | 'right') => void;
   onLike: () => void;
   onDislike: () => void;

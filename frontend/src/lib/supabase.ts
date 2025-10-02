@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Property } from '../types';
+import type { Listing } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -17,7 +17,7 @@ async function withAuthHeaders() {
 }
 
 // -------- PROPERTIES (temp direct call until feed Edge Function is solid) --------
-export const fetchProperties = async (): Promise<Property[]> => {
+export const fetchProperties = async (): Promise<Listing[]> => {
   const apiUrl = import.meta.env.VITE_SUPABASE_API_URL;
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
@@ -44,12 +44,6 @@ export async function saveUserProperties(
   timeToDecision?: number
 ) {
   const headers = await withAuthHeaders();
-
-  console.log("PROPID ",mls_number);
-  console.log("status ",status);
-  console.log("sessionId ",sessionId);
-  console.log("ttd ",timeToDecision);
-
   const { data, error } = await supabase.functions.invoke("swipe", {
     method: "POST",
     headers,
@@ -58,6 +52,19 @@ export async function saveUserProperties(
   if (error) throw error;
   return data;
 }
+
+export const removeUserProperty = async (mls_number: string) => {
+
+    const headers = await withAuthHeaders();
+    const { data, error } = await supabase.functions.invoke("swipe", {
+      method: "DELETE",
+      headers,
+      body: { route: "unswipe", mls_number: mls_number},
+    });
+    if (error) throw error;
+
+    return data;
+};
 
 // -------- MATCHES (Edge Functions) --------
 export async function getUserProperties() {
