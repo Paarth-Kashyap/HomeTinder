@@ -118,7 +118,10 @@ async function insertPropertyAndMedia(record) {
   const { error: propError } = await supabase.from("properties").upsert({
     mls_number: mlsNumber,
     address: record.UnparsedAddress,
+    address2: record.StreetNumber+" "+record.StreetName+" "+record.StreetSuffix,
+    postal_code: record.PostalCode,
     city: record.City,
+    country: record.Country,
     price: record.ListPrice,
     bedrooms: record.BedroomsTotal,
     bathrooms: record.BathroomsTotalInteger,
@@ -126,7 +129,12 @@ async function insertPropertyAndMedia(record) {
     last_timestamp: record.ModificationTimestamp,
     last_key: record.ListingKey,
     description: record.PublicRemarks,
-    is_active: "true"
+    is_active: "true",
+    transaction_type: record.TransactionType,
+    property_subtype: record.PropertySubType,
+    lot_depth: record.LotDepth,
+    lot_width: record.LotWidth,
+    object: record
   }, { onConflict: "mls_number" });
 
   if (propError) console.error("Property insert error:", propError);
