@@ -1,11 +1,13 @@
 {
   "devDependencies": {
+    "@types/leaflet": "^1.9.20",
     "supabase": "^2.45.5"
   },
   "name": "hometinder",
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
+    "@react-google-maps/api": "^2.20.7",
     "agent-base": "^7.1.4",
     "bin-links": "^5.0.0",
     "chownr": "^3.0.0",
@@ -17,6 +19,7 @@
     "formdata-polyfill": "^4.0.10",
     "https-proxy-agent": "^7.0.6",
     "imurmurhash": "^0.1.4",
+    "leaflet": "^1.9.4",
     "minipass": "^7.1.2",
     "minizlib": "^3.0.2",
     "mkdirp": "^3.0.1",
@@ -26,6 +29,7 @@
     "node-fetch": "^3.3.2",
     "npm-normalize-package-bin": "^4.0.0",
     "proc-log": "^5.0.0",
+    "react-leaflet": "^5.0.0",
     "read-cmd-shim": "^5.0.0",
     "signal-exit": "^4.1.0",
     "tar": "^7.4.3",

@@ -6,6 +6,7 @@ import { Layout } from './components/Layout';
 import { AuthForm } from './components/AuthForm';
 import { PropertySwiper } from './components/PropertySwiper';
 import { LikesPage } from './pages/LikesPage';
+import { ProfilePage } from './pages/ProfilePage';
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const AppRoutes: React.FC = () => {
       <Routes>
         <Route path="/" element={<PropertySwiper />} />
         <Route path="/likes" element={<LikesPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

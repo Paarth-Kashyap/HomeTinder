@@ -3,7 +3,7 @@ import { useAuth } from "../hooks/useAuth";
 import { getUserProperties, removeUserProperty } from "../lib/supabase";
 import type { Listing } from "../types";
 
-const PAGE_SIZE = 12; // 👈 tweak page size here
+const PAGE_SIZE = 12; 
 
 export const LikesPage: React.FC = () => {
   const { user } = useAuth();
@@ -28,7 +28,7 @@ export const LikesPage: React.FC = () => {
           property_type: item.property.property_type,
           images: Array.isArray(item.property.media?.image_urls) ? item.property.media.image_urls : [],
           id: item.property.id,
-          status: item.status,             // "liked" | "disliked"
+          status: item.status,
           created_at: item.property.created_at,
         }));
 
