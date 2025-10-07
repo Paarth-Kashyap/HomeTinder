@@ -22,6 +22,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navLinks = [
     { to: "/", label: "🏠 Browse" },
     { to: "/likes", label: "❤️ My Likes" },
+    { to: "/profile", label: "👤 My Profile" },
   ];
 
   return (
@@ -76,11 +77,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* Divider */}
             <hr className="my-2 border-gray-200" />
-
-            {/* User account section */}
-            <div className="px-3 py-2 text-sm text-gray-700 font-medium">
-              {user.email}
-            </div>
             <button
               onClick={handleSignOut}
               className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-md transition-colors"

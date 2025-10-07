@@ -61,12 +61,15 @@ export const fetchUserFeed = async () => {
   }
   const normalized: Listing[] = (data || []).map((item: any) => ({
     mls_number: item.mls_number,
-    address: item.address,
+    address: item.address2,
+    postal: item.postal_code,
+    province: item.address.substring(item.address.length-10,item.address.length-8),
     city: item.city,
     price: item.price,
     bedrooms: item.bedrooms,
     bathrooms: item.bathrooms,
-    property_type: item.property_type,
+    transaction: item.transaction_type,
+    property_subtype: item.property_subtype,
     images: Array.isArray(item.media?.image_urls)
       ? item.media.image_urls
       : [], // always a string[]

@@ -9,7 +9,11 @@ export interface Listing {
   images: string[];
   status?: 'liked' | 'disliked';
   created_at: string;
-  id: number; 
+  id: number;
+  postal: string;
+  province: string;
+  transaction: string;
+  property_subtype: string;
 }
 
 export interface User {
