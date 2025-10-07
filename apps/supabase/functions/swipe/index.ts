@@ -20,7 +20,6 @@ serve(async (req) => {
     }
     switch (body.route) {
       case "feed":
-        console.log("HITTING THE RIGHT SPOT", body);
         return await getFeed(req);
       case "swipe":
         return await saveSwipe(req, body);
@@ -71,7 +70,6 @@ async function getFeed(req: Request) {
     .eq("user_id", user.id);
 
   const swipedIds = swiped?.map((s) => s.mls_number) || [];
-  console.log("SWIPED IDS: ", swipedIds);
   // query properties with filters
   let query = supabaseAdmin
   .from("properties")
